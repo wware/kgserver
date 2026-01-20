@@ -6,7 +6,7 @@ Important architectural note:
 
 - The server does **not** ingest raw documents directly.
 - Domain-specific ingestion pipelines produce rich JSON artifacts internally.
-- A finalized, validated **bundle** is exported and loaded by the server at startup.
+- A finalized, validated bundle is exported and loaded by the server as-is at startup.
 
 If you are working on ingestion, storage, or bundle loading, read:
 ➡️ **docs/architecture.md — Producer artifacts vs server bundle**
@@ -66,6 +66,16 @@ Archive:  /home/wware/S.zip
     16789                     4 files
 ```
 
+### What is intentionally *not* in a bundle
+
+Bundles do not include:
+- Raw source documents
+- NLP artifacts (NER spans, embeddings, token offsets)
+- Alias resolution logic
+- Ontology definitions
+
+Those belong to producer pipelines.
+
 ### `manifest.json`
 
 ```json
@@ -117,6 +127,14 @@ Each entity looks like this.
 }
 ```
 
+Notes:
+
+- Fields shown at the top level are part of the **server schema**.
+- `properties` is an **opaque JSON object**:
+  - Its contents are not interpreted by the server
+  - It may vary freely by domain
+  - It may be empty
+
 ### `relationships.jsonl`
 ```json
 {"subject_id":"holmes:char:SherlockHolmes","object_id":"holmes:story:AScandalInBohemia","predicate":"appears_in","confidence":0.95,"source_documents":["8480d4da-80da-48c8-ada4-e48aff54d2a6"],"created_at":"2026-01-20T20:56:03.339275+00:00","properties":{}}
@@ -143,3 +161,115 @@ Each relationship looks like this.
     "properties": {}
 }
 ```
+
+Relationships are directed: `subject_id --predicate--> object_id`.
+
+### Bundle contract (important)
+
+The bundle format is a **strict, validated contract** between producer pipelines and the server.
+
+- Bundles **must already be normalized** when exported.
+- The server **does not rename fields**, infer structure, or reinterpret metadata.
+- If a bundle does not match the declared format, **the server should fail fast at startup**.
+
+Producer pipelines are responsible for:
+- Flattening fields to their canonical locations
+- Choosing stable identifiers
+- Ensuring all required fields are present
+
+The server’s responsibility is limited to validation, loading, and querying.
+
+## **OOPS** -- stuff I forgot, add it later
+
+**mkdocs build at startup**
+
+Conceptually, this lives **entirely outside the bundle contract**.
+
+Think in three layers:
+
+### 1. **Bundle (immutable input)**
+
+* Contains:
+
+  * graph data (`entities.jsonl`, `relationships.jsonl`)
+  * optional docs sources (`docs/*.md`, images, etc.)
+* Is treated as **read-only**
+* Is validated, not transformed
+
+### 2. **Startup build step (derived artifacts)**
+
+* On server startup:
+
+  * If `docs` is present in the manifest:
+
+    * Run `mkdocs build`
+    * Output to a **server-managed directory**, e.g.:
+
+      ```
+      /var/lib/kgraph/bundles/<bundle_id>/site/
+      ```
+* This output is:
+
+  * derived
+  * disposable
+  * cacheable
+  * safe to delete/rebuild
+
+### 3. **Serving layer**
+
+* Static site server mounts:
+
+  ```
+  /docs → /var/lib/kgraph/bundles/<bundle_id>/site/
+  ```
+* No knowledge of mkdocs internals needed after startup
+
+This preserves:
+
+* immutability of the bundle
+* determinism (same bundle → same site)
+* a clean separation of concerns
+
+---
+
+## Why *not* think about it right now (you were right)
+
+Because it adds:
+
+* subprocess management
+* filesystem layout decisions
+* failure modes (what if docs build fails?)
+* caching policy questions
+
+None of that should pollute:
+
+* the bundle schema
+* ingestion logic
+* graph querying
+
+So parking it was the right instinct.
+
+---
+
+## One thing you *might* jot down now (so Future You doesn’t curse Past You)
+
+Add a **one-line TODO comment** in `docs/architecture.md`, something like:
+
+> **TODO:** At server startup, optional documentation sources included in a bundle may be compiled (e.g. via `mkdocs build`) into derived static artifacts served by the API. These derived artifacts are not part of the bundle itself.
+
+That’s enough to:
+
+* preserve intent
+* avoid premature design
+* keep the boundary clear
+
+---
+
+Nothing in:
+
+* your README
+* the bundle format
+* the “fail fast” rule
+* the producer/server split
+
+needs to change to support this later.

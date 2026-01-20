@@ -12,11 +12,11 @@ Available Backends:
 
 Example:
 
-    >>> from storage.backends.sqlite import SQLitePipelineStorage
-    >>> storage = SQLitePipelineStorage("my_database.db")
+    >>> from storage.backends.sqlite import SQLiteStorage
+    >>> storage = SQLiteStorage("my_database.db")
 
-    >>> from storage.backends.postgres import PostgresPipelineStorage
-    >>> storage = PostgresPipelineStorage("postgresql://user:pass@localhost/db")
+    >>> from storage.backends.postgres import PostgresStorage
+    >>> storage = PostgresStorage("postgresql://user:pass@localhost/db")
 
 For detailed backend comparison and usage, see backends/README.md.
 """

@@ -6,8 +6,9 @@ import os
 from typing import Generator
 from sqlalchemy import create_engine
 from sqlmodel import Session
-from storage.backends.postgres import PostgresPipelineStorage
-from storage.interfaces import PipelineStorageInterface
+from storage.backends.postgres import PostgresStorage
+from storage.backends.sqlite import SQLiteStorage
+from storage.interfaces import StorageInterface
 
 # Singleton engine
 _engine = None
@@ -19,27 +20,51 @@ def get_engine():
     """
     global _engine
     if _engine is None:
-        db_url = os.getenv("DATABASE_URL", "postgresql://postgres:postgres@localhost:5432/medlit")
+        db_url = os.getenv("DATABASE_URL")
         if not db_url:
-            raise ValueError("DATABASE_URL environment variable is not set.")
-        _engine = create_engine(db_url)
+            print("DATABASE_URL not set, defaulting to SQLite in-memory database.")
+            db_url = "sqlite:///./test.db"  # Default to SQLite file for simplicity
+
+        connect_args = {}
+        if db_url.startswith("sqlite://"):
+            connect_args["check_same_thread"] = False  # Needed for SQLite with FastAPI
+
+        _engine = create_engine(db_url, connect_args=connect_args)
+    return _engine, db_url
     return _engine
 
 
-def get_storage() -> Generator[PipelineStorageInterface, None, None]:
+def get_storage() -> Generator[StorageInterface, None, None]:
     """
     FastAPI dependency that provides a storage instance with a request-scoped session.
     """
-    engine = get_engine()
-    with Session(engine) as session:
-        try:
-            storage = PostgresPipelineStorage(session)
-            yield storage
-            session.commit()
-        except Exception:
-            session.rollback()
-            raise
+    engine, db_url = get_engine()  # Get both engine and db_url
 
+    if db_url.startswith("postgresql://"):
+        with Session(engine) as session:
+            try:
+                storage: StorageInterface = PostgresStorage(session)
+                yield storage
+                session.commit()
+            except Exception:
+                session.rollback()
+                raise
+    elif db_url.startswith("sqlite://"):
+        # SQLiteStorage manages its own engine/session, so we instantiate it directly.
+        # It's important to pass the actual file path or ":memory:".
+        db_path = db_url.replace("sqlite:///", "") # Remove prefix to get path
+        if not db_path: # Handle in-memory or relative path cases
+             db_path = ":memory:" if db_url == "sqlite:///:memory:" else "./test.db"
+
+        storage: StorageInterface = SQLiteStorage(db_path)
+        try:
+            yield storage
+            # SQLiteStorage commits internally on operations or doesn't need explicit commit here
+            # for read-only usage, but we ensure it's closed.
+        finally:
+            storage.close() # Ensure SQLite connection is closed
+    else:
+        raise ValueError("Unsupported database URL scheme.")
 
 def close_storage():
     """

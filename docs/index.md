@@ -1,5 +1,21 @@
 # Knowledge Graph Server
 
+## Mental model (read this first)
+
+This project intentionally separates **knowledge extraction** from **knowledge serving**.
+
+- Ingestion pipelines (e.g. Sherlock, med-lit) produce **domain-specific JSON artifacts** that are the single source of truth.
+- A deterministic export step produces a **domain-neutral bundle**.
+- The KG server loads that bundle at startup and serves it from Postgres as a materialized index.
+
+If you are confused about what data lives where, or why Postgres can be rebuilt at any time, read:
+
+➡️ **[Producer artifacts vs server bundle](architecture.md#producer-artifacts-vs-server-bundle)**
+
+Everything else builds on that distinction.
+
+---
+
 I’ll stay at the **architectural / product-review** level as requested and not start coding. I’ll structure this as:
 
 1. What you have (as I understand it)
@@ -605,3 +621,174 @@ Putting Ollama/MCP on ice right now is not procrastination.
 It’s architectural discipline.
 
 Mark it, park it, and move on with a clean conscience.
+
+
+# Next thing
+
+Option A + multi-container + “Jupyter later” is a very clean path.
+
+Yep: defining the bundle contract as **Pydantic models** is perfect. Two common patterns:
+
+* **Strict manifest model** (validated at startup)
+* **Loose “data row” models** (validated as you ingest JSONL rows)
+
+Below is a concrete, copy/paste-able *example* you can adapt. It’s intentionally “bundle v1” and read-only friendly.
+
+```python
+# bundle_schema.py
+from __future__ import annotations
+
+from datetime import datetime
+from enum import Enum
+from pathlib import Path
+from typing import Any, Literal
+
+from pydantic import BaseModel, ConfigDict, Field, field_validator
+
+
+class BundleFormat(str, Enum):
+    JSON = "json"
+    JSONL = "jsonl"
+
+
+class FileRef(BaseModel):
+    """Reference to a file in the mounted bundle directory."""
+    model_config = ConfigDict(frozen=True)
+
+    path: str = Field(..., description="Relative path within the bundle directory")
+    format: BundleFormat
+
+    @field_validator("path")
+    @classmethod
+    def _path_must_be_relative(cls, v: str) -> str:
+        p = Path(v)
+        if p.is_absolute():
+            raise ValueError("path must be relative to the bundle root")
+        if ".." in p.parts:
+            raise ValueError("path must not contain '..'")
+        return v
+
+
+class IdFields(BaseModel):
+    """Declare the field names used by entity and relationship rows."""
+    model_config = ConfigDict(frozen=True)
+
+    entity_id: str = "entity_id"
+    entity_type: str = "entity_type"
+    name: str = "name"
+
+    subject_id: str = "subject_id"
+    predicate: str = "predicate"
+    object_id: str = "object_id"
+
+
+class BundleManifestV1(BaseModel):
+    """
+    The one file the server reads first: /bundle/manifest.json
+    It tells the server what data files exist and how to interpret them.
+    """
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    bundle_version: Literal["v1"] = "v1"
+    domain: str = Field(..., description="Human-readable domain name, e.g. 'sherlock'")
+    created_at: datetime = Field(..., description="When this bundle was generated")
+
+    # Optional but very useful for idempotent loads
+    bundle_id: str = Field(
+        ...,
+        description="Stable identifier for this bundle build (hash or UUID)",
+        examples=["sha256:..."],
+    )
+
+    id_fields: IdFields = Field(default_factory=IdFields)
+
+    entities: FileRef
+    relationships: FileRef
+
+    documents: FileRef | None = None
+    embeddings: FileRef | None = None
+
+    # Anything else you want to preserve without schema churn
+    metadata: dict[str, Any] = Field(default_factory=dict)
+
+    @field_validator("domain")
+    @classmethod
+    def _domain_nonempty(cls, v: str) -> str:
+        v2 = v.strip()
+        if not v2:
+            raise ValueError("domain must be non-empty")
+        return v2
+
+
+# --- Optional row-level models for validation during ingest ---
+
+class EntityRow(BaseModel):
+    model_config = ConfigDict(frozen=True, extra="allow")
+
+    entity_id: str
+    entity_type: str
+    name: str | None = None
+    status: str | None = None
+    confidence: float | None = None
+    usage_count: int | None = None
+    created_at: datetime | None = None
+    source: str | None = None
+    synonyms: list[str] | None = None
+
+
+class RelationshipRow(BaseModel):
+    model_config = ConfigDict(frozen=True, extra="allow")
+
+    subject_id: str
+    predicate: str
+    object_id: str
+    confidence: float | None = None
+    source_documents: list[str] | None = None
+    created_at: datetime | None = None
+    metadata: dict[str, Any] | None = None
+```
+
+### How this gets used in practice
+
+**1) At startup**
+
+* read `/bundle/manifest.json`
+* validate with `BundleManifestV1`
+* check all referenced files exist under the bundle root
+* load entities + relationships into Postgres
+
+**2) For JSONL ingestion**
+
+* stream lines
+* for each line:
+
+  * parse JSON dict
+  * optionally validate with `EntityRow`/`RelationshipRow`
+  * insert/upsert into Postgres
+
+### A minimal `manifest.json` that matches this
+
+```json
+{
+  "bundle_version": "v1",
+  "domain": "sherlock",
+  "created_at": "2026-01-20T12:00:00Z",
+  "bundle_id": "sha256:deadbeef...",
+  "entities": { "path": "entities.jsonl", "format": "jsonl" },
+  "relationships": { "path": "relationships.jsonl", "format": "jsonl" },
+  "documents": { "path": "documents.jsonl", "format": "jsonl" },
+  "metadata": {
+    "generator": "examples.sherlock",
+    "generator_version": "0.1.0"
+  }
+}
+```
+
+### Notes tailored to your goals
+
+* **Schema.json is optional.** The Pydantic manifest *is* your contract. A JSON Schema can be added later for external tooling, but you don’t need it to ship the server.
+* `bundle_id` is the lever for “load-on-start, idempotent”. Store it in Postgres and no-op if already loaded.
+* Keeping `EntityRow`/`RelationshipRow` with `extra="allow"` is nice early on: you can evolve fields without breaking ingestion.
+
+If you paste a quick sketch of what your Postgres tables look like today (or how you want them to look), I’ll map this manifest cleanly onto a load process and point out the few places where “read-only + idempotent + fast startup” usually needs one extra table/index.
+

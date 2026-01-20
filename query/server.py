@@ -9,7 +9,7 @@ from .storage_factory import close_storage, get_engine, get_storage
 from .routers import rest_api
 from .routers import graphiql_custom
 from .graphql_schema import Query
-from med_lit_schema.storage.interfaces import PipelineStorageInterface
+from storage.interfaces import StorageInterface
 
 
 
@@ -36,7 +36,7 @@ app.include_router(rest_api.router)
 
 # Create a context getter that uses your dependency
 async def get_context(
-    storage: PipelineStorageInterface = Depends(get_storage),
+    storage: StorageInterface = Depends(get_storage),
 ):
     return {
         "storage": storage,

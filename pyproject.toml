@@ -6,12 +6,17 @@ readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [
     "black>=26.1.0",
+    "fastapi>=0.128.0",
     "flake8>=7.3.0",
+    "psycopg-binary>=3.3.2",
     "pydantic>=2.12.5",
     "pytest>=9.0.2",
     "pytest-asyncio>=1.3.0",
     "ruff>=0.14.13",
+    "sqlalchemy>=2.0.45",
+    "strawberry-graphql[fastapi]>=0.289.2",
     "typing>=3.10.0.0",
+    "uvicorn>=0.40.0",
 ]
 
 [tool.black]

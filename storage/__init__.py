@@ -12,11 +12,11 @@ Key Components:
 
 Example:
 
-    >>> from storage.interfaces import PipelineStorageInterface
-    >>> from storage.backends.sqlite import SQLitePipelineStorage
+    >>> from storage.interfaces import StorageInterface
+    >>> from storage.backends.sqlite import SQLiteStorage
     >>>
     >>> # Create an in-memory SQLite storage
-    >>> storage = SQLitePipelineStorage(":memory:")
+    >>> storage = SQLiteStorage(":memory:")
     >>>
     >>> # Add entities, papers, relationships
     >>> storage.entities.add_disease(disease)

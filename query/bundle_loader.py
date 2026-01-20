@@ -13,9 +13,11 @@ from pathlib import Path
 from sqlmodel import Session, SQLModel, delete
 
 from .bundle import BundleManifestV1
+from storage.backends.sqlite import SQLiteStorage
 from storage.backends.postgres import PostgresStorage
 
 # from storage.backends.sqlite import SQLiteStorage
+from storage.models.bundle import Bundle
 from storage.models.entity import Entity
 from storage.models.relationship import Relationship
 
@@ -99,26 +101,22 @@ def _find_manifest(search_dir: Path) -> Path | None:
 def _do_load(engine, db_url: str, bundle_dir: Path, manifest_path: Path) -> None:
     """Actually load the bundle into storage."""
     # Parse manifest
-    with open(manifest_path, "r") as f:
-        manifest_data = json.load(f)
-
-    manifest = BundleManifestV1(**manifest_data)
+    manifest = BundleManifestV1.model_validate_json(manifest_path.read_text())
     print(f"Loaded manifest for bundle: {manifest.bundle_id} (domain: {manifest.domain})")
 
-    # Get the appropriate storage backend
     with Session(engine) as session:
-        # Clear existing data before loading
-        print("Clearing existing data from Relationship and Entity tables...")
-        session.exec(delete(Relationship))
-        session.exec(delete(Entity))
-        session.commit()
-        print("Data cleared.")
+        storage = PostgresStorage(session) if db_url.startswith("postgres") else SQLiteStorage(session)
+        force = os.getenv("BUNDLE_FORCE_RELOAD", "").lower() in {"1", "true", "yes"}
+        if storage.is_bundle_loaded(manifest.bundle_id) and not force:
+            print(f"Bundle {manifest.bundle_id} already loaded. Skipping.")
+            return
 
-        if db_url.startswith("postgresql://"):
-            storage = PostgresStorage(session)
-        else:
-            # For SQLite we need to use the session-based approach here
-            storage = PostgresStorage(session)  # PostgresStorage works with any SQLModel session
+        if force:
+            print("Force reload enabled: clearing Bundle, Relationship, and Entity tables...")
+            session.exec(delete(Bundle))
+            session.exec(delete(Relationship))
+            session.exec(delete(Entity))
+            session.commit()
 
         storage.load_bundle(manifest, str(bundle_dir))
         print(f"Bundle {manifest.bundle_id} loaded successfully.")

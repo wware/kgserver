@@ -1,6 +1,4 @@
-def main():
-    print("Hello from kgserver!")
+# Entry point for uvicorn: uvicorn main:app
+from query.server import app
 
-
-if __name__ == "__main__":
-    main()
+__all__ = ["app"]

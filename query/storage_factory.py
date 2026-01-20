@@ -10,28 +10,28 @@ from storage.backends.postgres import PostgresStorage
 from storage.backends.sqlite import SQLiteStorage
 from storage.interfaces import StorageInterface
 
-# Singleton engine
+# Singleton engine and db_url
 _engine = None
+_db_url = None
 
 
 def get_engine():
     """
-    Returns a singleton instance of the SQLAlchemy engine.
+    Returns a singleton instance of the SQLAlchemy engine and db_url.
     """
-    global _engine
+    global _engine, _db_url
     if _engine is None:
-        db_url = os.getenv("DATABASE_URL")
-        if not db_url:
+        _db_url = os.getenv("DATABASE_URL")
+        if not _db_url:
             print("DATABASE_URL not set, defaulting to SQLite in-memory database.")
-            db_url = "sqlite:///./test.db"  # Default to SQLite file for simplicity
+            _db_url = "sqlite:///./test.db"  # Default to SQLite file for simplicity
 
         connect_args = {}
-        if db_url.startswith("sqlite://"):
+        if _db_url.startswith("sqlite://"):
             connect_args["check_same_thread"] = False  # Needed for SQLite with FastAPI
 
-        _engine = create_engine(db_url, connect_args=connect_args)
-    return _engine, db_url
-    return _engine
+        _engine = create_engine(_db_url, connect_args=connect_args)
+    return _engine, _db_url
 
 
 def get_storage() -> Generator[StorageInterface, None, None]:
@@ -70,7 +70,8 @@ def close_storage():
     """
     Closes the engine connection.
     """
-    global _engine
+    global _engine, _db_url
     if _engine:
         _engine.dispose()
         _engine = None
+        _db_url = None

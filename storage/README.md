@@ -36,7 +36,7 @@ The storage layer uses a single abstract interface (`StorageInterface`) that all
 from storage.backends.sqlite import SQLiteStorage
 from storage.models.entity import Entity
 from storage.models.relationship import Relationship
-from bundle_schema import BundleManifestV1
+from query.bundle import BundleManifestV1
 import datetime
 
 # Create in-memory database (or a file path)
@@ -85,7 +85,7 @@ storage.close()
 ```python
 from storage.backends.postgres import PostgresStorage
 from sqlmodel import create_engine, Session
-from bundle_schema import BundleManifestV1
+from query.bundle import BundleManifestV1
 import datetime
 
 # Connect to PostgreSQL

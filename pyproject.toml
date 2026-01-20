@@ -8,12 +8,14 @@ dependencies = [
     "black>=26.1.0",
     "fastapi>=0.128.0",
     "flake8>=7.3.0",
+    "mypy>=1.19.1",
     "psycopg-binary>=3.3.2",
     "pydantic>=2.12.5",
     "pytest>=9.0.2",
     "pytest-asyncio>=1.3.0",
     "ruff>=0.14.13",
     "sqlalchemy>=2.0.45",
+    "sqlmodel>=0.0.31",
     "strawberry-graphql[fastapi]>=0.289.2",
     "typing>=3.10.0.0",
     "uvicorn>=0.40.0",
@@ -34,4 +36,8 @@ max-line-length = 200
 [tool.flake8]
 line-length = 200
 ignore = ["E203", "E266", "E501", "W503", "E402"]
+
+[tool.mypy]
+ignore_missing_imports = true
+
 

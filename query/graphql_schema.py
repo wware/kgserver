@@ -5,7 +5,8 @@ This schema uses proper Strawberry types for type safety and better GraphQL intr
 """
 
 import strawberry
-from typing import List, Optional, Any
+from strawberry.scalars import JSON
+from typing import List, Optional
 from strawberry.types import Info
 
 from storage.models.entity import Entity as EntityModel
@@ -22,8 +23,8 @@ class Entity:
     confidence: Optional[float] = None
     usage_count: Optional[int] = None
     source: Optional[str] = None
-    synonyms: List[str] = []
-    properties: Any = None # Use Any for JSON/dict
+    synonyms: List[str] = strawberry.field(default_factory=list)
+    properties: Optional[JSON] = None
 
 
 @strawberry.type
@@ -34,8 +35,8 @@ class Relationship:
     predicate: str
     object_id: str
     confidence: Optional[float] = None
-    source_documents: List[str] = []
-    properties: Any = None # Use Any for JSON/dict
+    source_documents: List[str] = strawberry.field(default_factory=list)
+    properties: Optional[JSON] = None
 
 
 @strawberry.type

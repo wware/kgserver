@@ -3,7 +3,7 @@ Storage interfaces for the Knowledge Graph Server.
 """
 
 from abc import ABC, abstractmethod
-from typing import List, Optional, Any, Sequence
+from typing import Optional, Sequence
 from .models.entity import Entity
 from .models.relationship import Relationship
 from query.bundle import BundleManifestV1

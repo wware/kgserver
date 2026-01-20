@@ -10,6 +10,7 @@ class Entity(SQLModel, table=True):
     """
     A generic entity in the knowledge graph.
     """
+
     entity_id: str = Field(primary_key=True)
     entity_type: str = Field(index=True)
     name: Optional[str] = Field(default=None, index=True)

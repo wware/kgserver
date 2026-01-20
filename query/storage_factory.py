@@ -52,9 +52,9 @@ def get_storage() -> Generator[StorageInterface, None, None]:
     elif db_url.startswith("sqlite://"):
         # SQLiteStorage manages its own engine/session, so we instantiate it directly.
         # It's important to pass the actual file path or ":memory:".
-        db_path = db_url.replace("sqlite:///", "") # Remove prefix to get path
-        if not db_path: # Handle in-memory or relative path cases
-             db_path = ":memory:" if db_url == "sqlite:///:memory:" else "./test.db"
+        db_path = db_url.replace("sqlite:///", "")  # Remove prefix to get path
+        if not db_path:  # Handle in-memory or relative path cases
+            db_path = ":memory:" if db_url == "sqlite:///:memory:" else "./test.db"
 
         storage: StorageInterface = SQLiteStorage(db_path)
         try:
@@ -62,9 +62,10 @@ def get_storage() -> Generator[StorageInterface, None, None]:
             # SQLiteStorage commits internally on operations or doesn't need explicit commit here
             # for read-only usage, but we ensure it's closed.
         finally:
-            storage.close() # Ensure SQLite connection is closed
+            storage.close()  # Ensure SQLite connection is closed
     else:
         raise ValueError("Unsupported database URL scheme.")
+
 
 def close_storage():
     """

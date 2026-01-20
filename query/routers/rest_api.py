@@ -5,7 +5,6 @@ REST API router for the Medical Literature Knowledge Graph.
 from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel, Field
 from storage.models.entity import Entity
 from storage.models.relationship import Relationship
 from storage.interfaces import StorageInterface
@@ -13,10 +12,6 @@ from storage.interfaces import StorageInterface
 from ..storage_factory import get_storage
 
 router = APIRouter(prefix="/api/v1")
-
-
-
-
 
 
 @router.get(
@@ -77,5 +72,3 @@ async def find_relationships(
         limit=limit,
     )
     return relationships
-
-

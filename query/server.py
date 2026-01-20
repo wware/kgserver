@@ -13,7 +13,6 @@ from .graphql_schema import Query
 from storage.interfaces import StorageInterface
 
 
-
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """
@@ -36,6 +35,7 @@ app = FastAPI(
 # Mount REST API
 app.include_router(rest_api.router)
 
+
 # Create a context getter that uses your dependency
 async def get_context(
     storage: StorageInterface = Depends(get_storage),
@@ -43,6 +43,7 @@ async def get_context(
     return {
         "storage": storage,
     }
+
 
 # Mount GraphQL with context (no built-in GraphiQL)
 graphql_schema = strawberry.Schema(query=Query)
@@ -56,6 +57,7 @@ app.include_router(graphql_app, prefix="/graphql")
 
 # Mount custom GraphiQL interface with example queries
 app.include_router(graphiql_custom.router, prefix="/graphiql", tags=["GraphQL"])
+
 
 @app.get("/health")
 async def health_check():

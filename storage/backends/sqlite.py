@@ -1,8 +1,9 @@
 """
 SQLite implementation of the storage interface.
 """
+
 import json
-from typing import List, Optional, Sequence
+from typing import Optional, Sequence
 from sqlmodel import Session, SQLModel, create_engine, select
 from storage.interfaces import StorageInterface
 from storage.models import Bundle, Entity, Relationship

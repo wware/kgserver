@@ -9,13 +9,11 @@ from strawberry.scalars import JSON
 from typing import List, Optional
 from strawberry.types import Info
 
-from storage.models.entity import Entity as EntityModel
-from storage.models.relationship import Relationship as RelationshipModel
-
 
 @strawberry.type
 class Entity:
     """Generic entity GraphQL type."""
+
     entity_id: str
     entity_type: str
     name: Optional[str] = None
@@ -30,6 +28,7 @@ class Entity:
 @strawberry.type
 class Relationship:
     """Generic relationship GraphQL type."""
+
     id: strawberry.ID
     subject_id: str
     predicate: str

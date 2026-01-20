@@ -24,5 +24,5 @@ For detailed backend comparison and usage, see backends/README.md.
 __all__ = [
     "sqlite",
     "postgres",
-    "sqlite_entity_collection",
+    # "sqlite_entity_collection",
 ]

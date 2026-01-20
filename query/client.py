@@ -366,7 +366,7 @@ class GraphQuery:
 
         # Add property filters
         # Note: Property keys should be validated in production
-        for key in self._filters.keys():
+        for key in self._filters:
             # Basic validation: alphanumeric and underscore only
             if not key.replace("_", "").isalnum():
                 raise ValueError(f"Invalid filter key: {key}")

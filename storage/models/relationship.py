@@ -11,6 +11,7 @@ class Relationship(SQLModel, table=True):
     """
     A generic relationship in the knowledge graph.
     """
+
     __table_args__ = (UniqueConstraint("subject_id", "object_id", "predicate", name="uq_relationship"),)
 
     id: UUID = Field(default_factory=uuid4, primary_key=True)

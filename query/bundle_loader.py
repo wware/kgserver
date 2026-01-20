@@ -4,7 +4,6 @@ Bundle loading utilities for the KG server.
 Handles loading bundles from directories or ZIP files at startup.
 """
 
-import json
 import os
 import tempfile
 import zipfile

@@ -7,7 +7,7 @@ These queries are displayed in the GraphiQL interface to help users get started.
 EXAMPLE_QUERIES = {
     "Get Entity by ID": """# Retrieve a specific entity by its ID
 query GetEntity {
-  entity(entityId: "E001") {
+  entity(entityId: "holmes:char:JohnWatson") {
     entityId
     name
     entityType
@@ -23,10 +23,10 @@ query SearchEntities {
     entityType
   }
 }""",
-    "Find Relationships": """# Find relationships (e.g., predicate "knows")
+    "Find Relationships": """# Find relationships (e.g., predicate "co_occurs_with")
 query FindRelationships {
   relationships(
-    predicate: "knows"
+    predicate: "co_occurs_with"
     limit: 5
   ) {
     id
@@ -41,7 +41,7 @@ query FindRelationships {
     "Filter Relationships by Subject": """# Find all relationships for a specific entity
 query FilterBySubject {
   relationships(
-    subjectId: "E001"
+    subjectId: "holmes:char:JohnWatson"
     limit: 5
   ) {
     id
@@ -52,13 +52,13 @@ query FilterBySubject {
 }""",
     "Multiple Queries": """# Get an entity and its relationships in one request
 query EntityWithRelationships {
-  entity(entityId: "E001") {
+  entity(entityId: "holmes:char:JohnWatson") {
     entityId
     name
     entityType
   }
   relationships(
-    subjectId: "E001"
+    subjectId: "holmes:char:JohnWatson"
     limit: 5
   ) {
     id

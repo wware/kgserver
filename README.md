@@ -9,7 +9,7 @@ Important architectural note:
 - A finalized, validated bundle is exported and loaded by the server as-is at startup.
 
 If you are working on ingestion, storage, or bundle loading, read:
-➡️ **docs/architecture.md — Producer artifacts vs server bundle**
+[docs/architecture.md — Producer artifacts vs server bundle](http://localhost:8000/mkdocs/architecture/#producer-side-artifacts-single-source-of-truth)
 
 ## How to run this thing
 
@@ -50,8 +50,15 @@ docker-compose up --build
 
 ## Bundle format
 
-Let's peek inside a working bundle, from our
-Sherlock Holmes example in the `wware/kgraph` repository.
+Let's peek inside a working bundle, from our Sherlock Holmes example
+in the `wware/kgraph` repository.
+
+* Contains:
+
+  * graph data (`entities.jsonl`, `relationships.jsonl`)
+  * optional documentation assets listed in `documents.jsonl` (markdown files, images, etc.)
+* Is treated as **read-only** (single source of truth for that subgraph)
+* Bundle is **immutable**, can be validated, cannot be altered
 
 ```bash
 $ unzip -l ~/S.zip
@@ -62,8 +69,10 @@ Archive:  /home/wware/S.zip
     11051  2026-01-20 15:56   sherlock_bundle/relationships.jsonl
       499  2026-01-20 15:56   sherlock_bundle/manifest.json
      5239  2026-01-20 15:56   sherlock_bundle/entities.jsonl
+     1234  2026-01-20 15:56   sherlock_bundle/documents.jsonl
+     5678  2026-01-20 15:56   sherlock_bundle/docs/
 ---------                     -------
-    16789                     4 files
+    23660                     6 files
 ```
 
 ### What is intentionally *not* in a bundle
@@ -91,6 +100,10 @@ Those belong to producer pipelines.
   },
   "relationships": {
     "path": "relationships.jsonl",
+    "format": "jsonl"
+  },
+  "documents": {
+    "path": "documents.jsonl",
     "format": "jsonl"
   },
   "metadata": {
@@ -164,9 +177,26 @@ Each relationship looks like this.
 
 Relationships are directed: `subject_id --predicate--> object_id`.
 
+### `documents.jsonl` (optional)
+
+Bundles may include a `documents.jsonl` file that lists static documentation assets (markdown files, images, configuration files, etc.) to be copied to the server's documentation directory.
+
+Each line is a JSON object describing one asset:
+
+```json
+{"path": "docs/build_orch.md", "content_type": "text/markdown"}
+{"path": "docs/mkdocs.yml", "content_type": "text/yaml"}
+{"path": "docs/images/logo.png", "content_type": "image/png"}
+```
+
+When a bundle with `documents.jsonl` is loaded:
+- All listed files are copied from `bundle/docs/` to `/app/docs/` preserving directory structure
+- If `mkdocs.yml` is present, it's moved to `/app/mkdocs.yml` and MkDocs is built automatically
+- This enables domain-specific documentation to be bundled with the knowledge graph
+
 ### Bundle contract (important)
 
-The bundle format is a **strict, validated contract** between producer pipelines and the server.
+The bundle format is a **strict, structured, validated contract** between producer pipelines and the server.
 
 - Bundles **must already be normalized** when exported.
 - The server **does not rename fields**, infer structure, or reinterpret metadata.
@@ -179,97 +209,6 @@ Producer pipelines are responsible for:
 
 The server’s responsibility is limited to validation, loading, and querying.
 
-## **OOPS** -- stuff I forgot, add it later
+## Documentation Assets
 
-**mkdocs build at startup**
-
-Conceptually, this lives **entirely outside the bundle contract**.
-
-Think in three layers:
-
-### 1. **Bundle (immutable input)**
-
-* Contains:
-
-  * graph data (`entities.jsonl`, `relationships.jsonl`)
-  * optional docs sources (`docs/*.md`, images, etc.)
-* Is treated as **read-only**
-* Is validated, not transformed
-
-### 2. **Startup build step (derived artifacts)**
-
-* On server startup:
-
-  * If `docs` is present in the manifest:
-
-    * Run `mkdocs build`
-    * Output to a **server-managed directory**, e.g.:
-
-      ```
-      /var/lib/kgraph/bundles/<bundle_id>/site/
-      ```
-* This output is:
-
-  * derived
-  * disposable
-  * cacheable
-  * safe to delete/rebuild
-
-### 3. **Serving layer**
-
-* Static site server mounts:
-
-  ```
-  /docs → /var/lib/kgraph/bundles/<bundle_id>/site/
-  ```
-* No knowledge of mkdocs internals needed after startup
-
-This preserves:
-
-* immutability of the bundle
-* determinism (same bundle → same site)
-* a clean separation of concerns
-
----
-
-## Why *not* think about it right now (you were right)
-
-Because it adds:
-
-* subprocess management
-* filesystem layout decisions
-* failure modes (what if docs build fails?)
-* caching policy questions
-
-None of that should pollute:
-
-* the bundle schema
-* ingestion logic
-* graph querying
-
-So parking it was the right instinct.
-
----
-
-## One thing you *might* jot down now (so Future You doesn’t curse Past You)
-
-Add a **one-line TODO comment** in `docs/architecture.md`, something like:
-
-> **TODO:** At server startup, optional documentation sources included in a bundle may be compiled (e.g. via `mkdocs build`) into derived static artifacts served by the API. These derived artifacts are not part of the bundle itself.
-
-That’s enough to:
-
-* preserve intent
-* avoid premature design
-* keep the boundary clear
-
----
-
-Nothing in:
-
-* your README
-* the bundle format
-* the “fail fast” rule
-* the producer/server split
-
-needs to change to support this later.
+Bundles can include documentation assets via the `documents.jsonl` file. When a bundle is loaded, these assets are automatically copied to `/app/docs/` and MkDocs is built if `mkdocs.yml` is present. This allows domain-specific documentation to be packaged alongside the knowledge graph data.

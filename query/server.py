@@ -1,3 +1,5 @@
+import logging
+import subprocess
 from contextlib import asynccontextmanager
 from pathlib import Path
 from fastapi import FastAPI, Depends
@@ -11,6 +13,13 @@ from .routers import rest_api
 from .routers import graphiql_custom
 from .graphql_schema import Query
 from storage.interfaces import StorageInterface
+
+# Let's take this opportunity to do the mkdocs build
+logging.basicConfig(format="%(levelname)s:     %(asctime)s - %(message)s", level=logging.INFO, datefmt="%Y-%m-%d %H:%M:%S")
+logger = logging.getLogger()
+result = subprocess.run(["uv", "run", "mkdocs", "build"], check=False)
+if result.returncode != 0:
+    logger.error("MKDOCS BUILD FAILED")
 
 
 @asynccontextmanager

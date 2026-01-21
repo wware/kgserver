@@ -39,7 +39,8 @@ bundle/
   manifest.json          # required
   entities.jsonl         # required
   relationships.jsonl    # required
-  documents.jsonl        # optional
+  documents.jsonl        # optional - lists static documentation assets
+  docs/                  # optional - directory containing documentation files
 ```
 
 **Properties**
@@ -51,8 +52,9 @@ bundle/
   * shape validation (manifest + row parsing)
   * referential integrity (relationship endpoints must exist)
 * Intended for querying and serving, not extraction
+* May include documentation assets (markdown, images, etc.) listed in `documents.jsonl`
 
-The server does not ingest producer-internal artifacts directly.
+The server does not ingest producer-internal artifacts directly. Documentation assets listed in `documents.jsonl` are copied to `/app/docs/` at bundle load time for serving via MkDocs.
 
 ### Lifecycle
 

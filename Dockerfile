@@ -18,22 +18,22 @@ RUN uv sync --frozen && \
 # Copy mkdocs config and docs for building
 COPY mkdocs.yml ./
 COPY docs ./docs
-
-# Build MkDocs static site
-RUN uv run mkdocs build
+COPY README.md ./docs/index.md
 
 # Final stage
 FROM python:3.13-slim
 
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
-    libpq5 \
+    libpq5 unzip \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 
 COPY --from=builder /app/.venv /app/.venv
-COPY --from=builder /app/site /app/site
+COPY --from=builder /app/docs /app/docs
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/uv
+RUN mkdir -p /app/site
 COPY . .
 
 ENV PATH="/app/.venv/bin:$PATH" \

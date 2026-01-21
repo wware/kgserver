@@ -4,7 +4,12 @@ Bundle loading utilities for the KG server.
 Handles loading bundles from directories or ZIP files at startup.
 """
 
+import json
 import os
+import sys
+import logging
+import shutil
+import subprocess
 import tempfile
 import zipfile
 from pathlib import Path
@@ -20,6 +25,15 @@ from storage.models.bundle import Bundle
 from storage.models.entity import Entity
 from storage.models.relationship import Relationship
 
+logger = logging.getLogger()
+logger.setLevel(logging.DEBUG)
+ch = logging.StreamHandler(sys.stdout)
+ch.setLevel(logging.DEBUG)
+FORMAT = "%(levelname)s:     %(asctime)s - %(pathname)s:%(lineno)d - %(message)s"
+formatter = logging.Formatter(FORMAT)
+ch.setFormatter(formatter)
+logger.addHandler(ch)
+
 
 def load_bundle_at_startup(engine, db_url: str) -> None:
     """
@@ -29,6 +43,7 @@ def load_bundle_at_startup(engine, db_url: str) -> None:
         BUNDLE_PATH: Path to a bundle directory or ZIP file
     """
     bundle_path = os.getenv("BUNDLE_PATH")
+    logger.info("bundle_path=%s", bundle_path)
     if not bundle_path:
         print("BUNDLE_PATH not set, skipping bundle load.")
         return
@@ -38,7 +53,7 @@ def load_bundle_at_startup(engine, db_url: str) -> None:
         print(f"Warning: BUNDLE_PATH '{bundle_path}' does not exist, skipping bundle load.")
         return
 
-    print(f"Loading bundle from: {bundle_path}")
+    logger.info("Loading bundle from: %s", bundle_path)
 
     # Ensure tables exist
     SQLModel.metadata.create_all(engine)
@@ -97,25 +112,104 @@ def _find_manifest(search_dir: Path) -> Path | None:
     return None
 
 
+def _load_document_assets(bundle_dir: Path, manifest: BundleManifestV1) -> None:
+    """Load document assets from documents.jsonl into /app/docs.
+
+    Reads the documents.jsonl file (if present) and copies all listed assets
+    to /app/docs, preserving directory structure. Special handling for mkdocs.yml
+    which is moved to /app/mkdocs.yml.
+    """
+    if not manifest.documents:
+        return
+
+    documents_file = bundle_dir / manifest.documents.path
+    if not documents_file.exists():
+        logger.warning("Documents file %s not found, skipping document asset loading", documents_file)
+        return
+
+    app_docs = Path("/app/docs")
+    app_docs.mkdir(parents=True, exist_ok=True)
+
+    asset_count = 0
+    with open(documents_file, "r") as f:
+        for line in f:
+            line = line.strip()
+            if not line:
+                continue
+
+            try:
+                asset = json.loads(line)
+                asset_path = asset.get("path")
+                if not asset_path:
+                    logger.warning("Skipping asset entry without path: %s", line)
+                    continue
+
+                # Source file in bundle
+                source_file = bundle_dir / asset_path
+                if not source_file.exists():
+                    logger.warning("Asset file not found: %s", source_file)
+                    continue
+
+                # Destination in /app/docs (strip "docs/" prefix if present)
+                if asset_path.startswith("docs/"):
+                    rel_path = asset_path[5:]  # Remove "docs/" prefix
+                else:
+                    rel_path = asset_path
+
+                # Special handling for mkdocs.yml - move to /app root
+                if rel_path == "mkdocs.yml" or asset_path.endswith("/mkdocs.yml"):
+                    dest_path = Path("/app/mkdocs.yml")
+                    shutil.copy2(source_file, dest_path)
+                    logger.info("Copied %s to %s", source_file, dest_path)
+                    asset_count += 1
+                    continue
+
+                # Regular file - copy to /app/docs preserving structure
+                dest_path = app_docs / rel_path
+                dest_path.parent.mkdir(parents=True, exist_ok=True)
+                shutil.copy2(source_file, dest_path)
+                asset_count += 1
+
+            except json.JSONDecodeError as e:
+                logger.warning("Failed to parse asset entry: %s... Error: %s", line[:100], e)
+                continue
+
+    if asset_count > 0:
+        logger.info("Loaded %s document assets to /app/docs", asset_count)
+
+        # Build mkdocs if mkdocs.yml exists
+        mkdocs_yml = Path("/app/mkdocs.yml")
+        if mkdocs_yml.exists():
+            logger.info("Building MkDocs documentation...")
+            result = subprocess.run(["uv", "run", "mkdocs", "build"], capture_output=True, text=True, check=False)
+            if result.returncode == 0:
+                logger.info("MkDocs build completed successfully")
+            else:
+                logger.warning("MkDocs build failed: %s", result.stderr)
+
+
 def _do_load(engine, db_url: str, bundle_dir: Path, manifest_path: Path) -> None:
     """Actually load the bundle into storage."""
     # Parse manifest
     manifest = BundleManifestV1.model_validate_json(manifest_path.read_text())
-    print(f"Loaded manifest for bundle: {manifest.bundle_id} (domain: {manifest.domain})")
+    logger.info("Loaded manifest for bundle: %s (domain: %s)", manifest.bundle_id, manifest.domain)
+
+    # Load document assets if present
+    _load_document_assets(bundle_dir, manifest)
 
     with Session(engine) as session:
         storage = PostgresStorage(session) if db_url.startswith("postgres") else SQLiteStorage(session)
         force = os.getenv("BUNDLE_FORCE_RELOAD", "").lower() in {"1", "true", "yes"}
         if storage.is_bundle_loaded(manifest.bundle_id) and not force:
-            print(f"Bundle {manifest.bundle_id} already loaded. Skipping.")
+            logger.info("Bundle %s already loaded. Skipping.", manifest.bundle_id)
             return
 
         if force:
-            print("Force reload enabled: clearing Bundle, Relationship, and Entity tables...")
+            logger.info("Force reload enabled: clearing Bundle, Relationship, and Entity tables...")
             session.exec(delete(Bundle))
             session.exec(delete(Relationship))
             session.exec(delete(Entity))
             session.commit()
 
         storage.load_bundle(manifest, str(bundle_dir))
-        print(f"Bundle {manifest.bundle_id} loaded successfully.")
+        logger.info("Bundle %s loaded successfully.", manifest.bundle_id)

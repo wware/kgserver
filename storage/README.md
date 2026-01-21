@@ -50,6 +50,8 @@ manifest = BundleManifestV1(
     bundle_id="test_bundle_123",
     entities={"path": "entities.jsonl", "format": "jsonl"},
     relationships={"path": "relationships.jsonl", "format": "jsonl"},
+    # documents field is optional - include if bundle has documentation assets
+    # documents={"path": "documents.jsonl", "format": "jsonl"},
 )
 
 # Placeholder: In a real scenario, entities.jsonl and relationships.jsonl
@@ -102,6 +104,8 @@ manifest = BundleManifestV1(
     bundle_id="test_bundle_123",
     entities={"path": "entities.jsonl", "format": "jsonl"},
     relationships={"path": "relationships.jsonl", "format": "jsonl"},
+    # documents field is optional - include if bundle has documentation assets
+    # documents={"path": "documents.jsonl", "format": "jsonl"},
 )
 
 # Load the bundle (assuming 'entities.jsonl' and 'relationships.jsonl' are in the current dir)

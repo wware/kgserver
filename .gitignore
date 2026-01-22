@@ -5,3 +5,4 @@ __pycache__/
 *.pyo
 # Accidental SQLite database files with object repr as filename
 <sqlmodel*
+*.db

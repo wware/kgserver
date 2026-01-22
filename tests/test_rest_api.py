@@ -25,9 +25,14 @@ def app():
 
 @pytest.fixture
 def file_storage(tmp_path, sample_entities, sample_relationships):
-    """Create a file-based SQLite storage for thread-safe testing."""
+    """Create SQLite storage for thread-safe testing with FastAPI TestClient.
+
+    Uses tmp_path which automatically cleans up files after tests.
+    Can't use :memory: here because FastAPI TestClient runs in a different thread.
+    """
     from storage.backends.sqlite import SQLiteStorage
 
+    # tmp_path is automatically cleaned up by pytest, so no files left behind
     db_path = tmp_path / "test.db"
     storage = SQLiteStorage(str(db_path))
 
@@ -38,8 +43,15 @@ def file_storage(tmp_path, sample_entities, sample_relationships):
         storage._session.add(rel)
     storage._session.commit()
 
-    yield storage
-    storage.close()
+    try:
+        yield storage
+    finally:
+        # Ensure cleanup even if test fails
+        storage.close()
+        # Explicitly remove the database file (tmp_path cleanup should handle this,
+        # but being explicit ensures no files are left behind)
+        if db_path.exists():
+            db_path.unlink()
 
 
 @pytest.fixture

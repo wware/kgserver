@@ -19,7 +19,7 @@ class TestGetEngine:
 
     def test_get_engine_with_sqlite_url(self, monkeypatch):
         """Test get_engine with SQLite URL."""
-        monkeypatch.setenv("DATABASE_URL", "sqlite:///./test.db")
+        monkeypatch.setenv("DATABASE_URL", "sqlite:///:memory:")
         # Reset singleton
         import query.storage_factory as factory_module
 
@@ -27,7 +27,7 @@ class TestGetEngine:
         factory_module._db_url = None
 
         engine, db_url = get_engine()
-        assert db_url == "sqlite:///./test.db"
+        assert db_url == "sqlite:///:memory:"
         assert engine is not None
 
     def test_get_engine_with_postgres_url(self, monkeypatch):
@@ -53,6 +53,7 @@ class TestGetEngine:
         factory_module._db_url = None
 
         engine, db_url = get_engine()
+        # Note: Default is sqlite:///./test.db, but in tests we could use :memory:
         assert db_url == "sqlite:///./test.db"
         assert engine is not None
 
@@ -149,7 +150,7 @@ class TestGetStorage:
 
     def test_get_storage_sqlite_file_path(self, monkeypatch):
         """Test get_storage with SQLite file path."""
-        monkeypatch.setenv("DATABASE_URL", "sqlite:///./test.db")
+        monkeypatch.setenv("DATABASE_URL", "sqlite:///:memory:")
         # Reset singleton
         import query.storage_factory as factory_module
 

@@ -1,5 +1,7 @@
 # Architecture
 
+![Alt Text](GraphiQL_screenshot.png)
+
 ## Producer artifacts vs server bundle
 
 This distinction is foundational to the design of the KG server and should be understood before modifying ingestion, storage, or bundle-loading code.

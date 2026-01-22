@@ -11,6 +11,73 @@ Important architectural note:
 If you are working on ingestion, storage, or bundle loading, read:
 [docs/architecture.md — Producer artifacts vs server bundle](http://localhost:8000/mkdocs/architecture/#producer-side-artifacts-single-source-of-truth)
 
+
+### Try the GraphiQL playground
+
+![This works on a live KGServer instance, but not on GitHub](GraphiQL_screenshot.png)
+
+[**Link**](http://localhost:8000/graphiql/) - also doesn't work on GitHub
+
+
+**Why GraphQL is ideal for LLMs + Knowledge Graphs:**
+
+**1. Schema Introspection**
+LLMs can query the schema itself to discover what entities, relationships, and properties exist. This means they can adapt to your knowledge graph without being pre-programmed:
+
+```graphql
+query {
+  __schema {
+    types {
+      name
+      fields { name type }
+    }
+  }
+}
+```
+
+**2. Natural Graph Traversal**
+GraphQL queries mirror how knowledge graphs are structured - entities with properties and relationships:
+
+```graphql
+{
+  entity(id: "holmes:character:SherlockHolmes") {
+    name
+    properties
+    relationships {
+      type
+      targetEntity {
+        name
+        entityType
+      }
+    }
+  }
+}
+```
+
+**3. Precise Data Fetching**
+LLMs can request exactly what they need - no over-fetching massive JSON blobs. This is crucial for token efficiency:
+
+```graphql
+# Just get what you need
+{ entity(id: "X") { name entityType } }
+
+# vs REST which might return everything
+```
+
+**4. Single Endpoint**
+LLMs don't need to learn multiple REST endpoints - just one GraphQL endpoint with a queryable schema. This simplifies the tool definition significantly.
+
+**5. Strongly Typed**
+The type system helps LLMs construct valid queries. They can understand field types, required vs optional, and relationships before making requests.
+
+**Standard Resources:**
+
+- [**Official Tutorial**](https://graphql.org/learn/) - comprehensive guide from basics to advanced
+- [**How to GraphQL**](https://www.howtographql.com/) - free fullstack tutorial with multiple language tracks
+
+For scientific-journal-based knowledge graphs for instance, GraphQL lets an LLM discover entities like papers, claims, evidence, and then traverse relationships like "which papers support this claim" or "what entities are mentioned in this evidence" - all through introspection and flexible querying.
+
+
 ## How to run this thing
 
 ### Local testing (SQLite)

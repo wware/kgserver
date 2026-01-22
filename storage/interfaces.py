@@ -3,10 +3,13 @@ Storage interfaces for the Knowledge Graph Server.
 """
 
 from abc import ABC, abstractmethod
-from typing import Optional, Sequence
+from typing import Optional, Sequence, TYPE_CHECKING
 from .models.entity import Entity
 from .models.relationship import Relationship
 from query.bundle import BundleManifestV1
+
+if TYPE_CHECKING:
+    pass
 
 
 class StorageInterface(ABC):
@@ -44,9 +47,32 @@ class StorageInterface(ABC):
         pass
 
     @abstractmethod
-    def get_entities(self, limit: int = 100, offset: int = 0) -> Sequence[Entity]:
+    def get_entities(
+        self,
+        limit: int = 100,
+        offset: int = 0,
+        entity_type: Optional[str] = None,
+        name: Optional[str] = None,
+        name_contains: Optional[str] = None,
+        source: Optional[str] = None,
+        status: Optional[str] = None,
+    ) -> Sequence[Entity]:
         """
-        List all entities.
+        List entities with optional filtering.
+        """
+        pass
+
+    @abstractmethod
+    def count_entities(
+        self,
+        entity_type: Optional[str] = None,
+        name: Optional[str] = None,
+        name_contains: Optional[str] = None,
+        source: Optional[str] = None,
+        status: Optional[str] = None,
+    ) -> int:
+        """
+        Count entities matching filter criteria.
         """
         pass
 
@@ -57,9 +83,22 @@ class StorageInterface(ABC):
         predicate: Optional[str] = None,
         object_id: Optional[str] = None,
         limit: Optional[int] = None,
+        offset: Optional[int] = None,
     ) -> Sequence[Relationship]:
         """
         Find relationships matching criteria.
+        """
+        pass
+
+    @abstractmethod
+    def count_relationships(
+        self,
+        subject_id: Optional[str] = None,
+        predicate: Optional[str] = None,
+        object_id: Optional[str] = None,
+    ) -> int:
+        """
+        Count relationships matching filter criteria.
         """
         pass
 
@@ -74,6 +113,14 @@ class StorageInterface(ABC):
     def get_relationships(self, limit: int = 100, offset: int = 0) -> Sequence[Relationship]:
         """
         List all relationships.
+        """
+        pass
+
+    @abstractmethod
+    def get_bundle_info(self):
+        """
+        Get bundle metadata (latest bundle).
+        Returns None if no bundle is loaded.
         """
         pass
 

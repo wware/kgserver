@@ -7,7 +7,7 @@ These queries are displayed in the GraphiQL interface to help users get started.
 EXAMPLE_QUERIES = {
     "Get Entity by ID": """# Retrieve a specific entity by its ID
 query GetEntity {
-  entity(entityId: "holmes:char:JohnWatson") {
+  entity(id: "holmes:char:JohnWatson") {
     entityId
     name
     entityType
@@ -18,53 +18,107 @@ query GetEntity {
     "Search Entities": """# Search for entities with pagination
 query SearchEntities {
   entities(limit: 5, offset: 0) {
-    entityId
-    name
-    entityType
+    items {
+      entityId
+      name
+      entityType
+    }
+    total
+    limit
+    offset
   }
 }""",
-    "Find Relationships": """# Find relationships (e.g., predicate "co_occurs_with")
+    "Filter Entities": """# Filter entities by type and name
+query FilterEntities {
+  entities(
+    limit: 10
+    offset: 0
+    filter: {
+      entityType: "character"
+      nameContains: "Holmes"
+    }
+  ) {
+    items {
+      entityId
+      name
+      entityType
+      status
+    }
+    total
+    limit
+    offset
+  }
+}""",
+    "Find Relationships": """# Find relationships with pagination
 query FindRelationships {
   relationships(
-    predicate: "co_occurs_with"
     limit: 5
+    offset: 0
+    filter: {
+      predicate: "co_occurs_with"
+    }
   ) {
-    id
-    subjectId
-    predicate
-    objectId
-    confidence
-    sourceDocuments
-    properties
+    items {
+      subjectId
+      predicate
+      objectId
+      confidence
+      sourceDocuments
+      properties
+    }
+    total
+    limit
+    offset
   }
 }""",
     "Filter Relationships by Subject": """# Find all relationships for a specific entity
 query FilterBySubject {
   relationships(
-    subjectId: "holmes:char:JohnWatson"
     limit: 5
+    offset: 0
+    filter: {
+      subjectId: "holmes:char:JohnWatson"
+    }
   ) {
-    id
-    subjectId
-    predicate
-    objectId
+    items {
+      subjectId
+      predicate
+      objectId
+    }
+    total
+    limit
+    offset
   }
 }""",
     "Multiple Queries": """# Get an entity and its relationships in one request
 query EntityWithRelationships {
-  entity(entityId: "holmes:char:JohnWatson") {
+  entity(id: "holmes:char:JohnWatson") {
     entityId
     name
     entityType
   }
   relationships(
-    subjectId: "holmes:char:JohnWatson"
     limit: 5
+    offset: 0
+    filter: {
+      subjectId: "holmes:char:JohnWatson"
+    }
   ) {
-    id
-    subjectId
-    predicate
-    objectId
+    items {
+      subjectId
+      predicate
+      objectId
+    }
+    total
+  }
+}""",
+    "Bundle Info": """# Get bundle metadata for debugging and provenance
+query BundleInfo {
+  bundle {
+    bundleId
+    domain
+    createdAt
+    metadata
   }
 }""",
 }

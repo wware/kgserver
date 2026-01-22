@@ -4,6 +4,7 @@ SQLite implementation of the storage interface.
 
 import json
 from typing import Optional, Sequence
+from sqlalchemy import func
 from sqlmodel import Session, SQLModel, create_engine, select
 from storage.interfaces import StorageInterface
 from storage.models import Bundle, Entity, Relationship
@@ -105,12 +106,58 @@ class SQLiteStorage(StorageInterface):
         """
         return self._session.get(Entity, entity_id)
 
-    def get_entities(self, limit: int = 100, offset: int = 0) -> Sequence[Entity]:
+    def get_entities(
+        self,
+        limit: int = 100,
+        offset: int = 0,
+        entity_type: Optional[str] = None,
+        name: Optional[str] = None,
+        name_contains: Optional[str] = None,
+        source: Optional[str] = None,
+        status: Optional[str] = None,
+    ) -> Sequence[Entity]:
         """
-        List all entities.
+        List entities with optional filtering.
         """
-        statement = select(Entity).limit(limit).offset(offset)
+        statement = select(Entity)
+        if entity_type:
+            statement = statement.where(Entity.entity_type == entity_type)
+        if name:
+            statement = statement.where(Entity.name == name)
+        if name_contains:
+            # SQLite doesn't have ILIKE, but LIKE is case-insensitive for ASCII
+            # Use ilike() which SQLAlchemy will translate appropriately
+            statement = statement.where(Entity.name.ilike(f"%{name_contains}%"))
+        if source:
+            statement = statement.where(Entity.source == source)
+        if status:
+            statement = statement.where(Entity.status == status)
+        statement = statement.limit(limit).offset(offset)
         return self._session.exec(statement).all()
+
+    def count_entities(
+        self,
+        entity_type: Optional[str] = None,
+        name: Optional[str] = None,
+        name_contains: Optional[str] = None,
+        source: Optional[str] = None,
+        status: Optional[str] = None,
+    ) -> int:
+        """
+        Count entities matching filter criteria.
+        """
+        statement = select(func.count(Entity.entity_id))  # pylint: disable=not-callable
+        if entity_type:
+            statement = statement.where(Entity.entity_type == entity_type)
+        if name:
+            statement = statement.where(Entity.name == name)
+        if name_contains:
+            statement = statement.where(Entity.name.ilike(f"%{name_contains}%"))
+        if source:
+            statement = statement.where(Entity.source == source)
+        if status:
+            statement = statement.where(Entity.status == status)
+        return self._session.exec(statement).one()
 
     def find_relationships(
         self,
@@ -118,6 +165,7 @@ class SQLiteStorage(StorageInterface):
         predicate: Optional[str] = None,
         object_id: Optional[str] = None,
         limit: Optional[int] = None,
+        offset: Optional[int] = None,
     ) -> Sequence[Relationship]:
         """
         Find relationships matching criteria.
@@ -131,7 +179,27 @@ class SQLiteStorage(StorageInterface):
             statement = statement.where(Relationship.object_id == object_id)
         if limit:
             statement = statement.limit(limit)
+        if offset:
+            statement = statement.offset(offset)
         return self._session.exec(statement).all()
+
+    def count_relationships(
+        self,
+        subject_id: Optional[str] = None,
+        predicate: Optional[str] = None,
+        object_id: Optional[str] = None,
+    ) -> int:
+        """
+        Count relationships matching filter criteria.
+        """
+        statement = select(func.count(Relationship.id))  # pylint: disable=not-callable
+        if subject_id:
+            statement = statement.where(Relationship.subject_id == subject_id)
+        if predicate:
+            statement = statement.where(Relationship.predicate == predicate)
+        if object_id:
+            statement = statement.where(Relationship.object_id == object_id)
+        return self._session.exec(statement).one()
 
     def get_relationship(self, subject_id: str, predicate: str, object_id: str) -> Optional[Relationship]:
         """
@@ -150,6 +218,14 @@ class SQLiteStorage(StorageInterface):
         """
         statement = select(Relationship).limit(limit).offset(offset)
         return self._session.exec(statement).all()
+
+    def get_bundle_info(self):
+        """
+        Get bundle metadata (latest bundle).
+        Returns None if no bundle is loaded.
+        """
+        statement = select(Bundle).order_by(Bundle.created_at.desc()).limit(1)
+        return self._session.exec(statement).first()
 
     def close(self) -> None:
         """

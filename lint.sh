@@ -1,5 +1,12 @@
 #!/bin/bash -e
 
+fixes_needed() {
+    echo "Something needs fixing, try this:"
+    echo "uv run ruff check --fix . && uv run black ."
+    echo 'sed -i "s/ \+$//" $(git ls-files | grep -E "\.py$")'
+    exit 1
+}
+
 echo "=========================================="
 echo "Running Linters and Tests"
 echo "=========================================="
@@ -19,25 +26,25 @@ echo ""
 echo "=========================================="
 echo "Running ruff check..."
 echo "=========================================="
-uv run ruff check .
+uv run ruff check . || fixes_needed
 
 echo ""
 echo "=========================================="
 echo "Running black check..."
 echo "=========================================="
-uv run black --check .
+uv run black --check . || fixes_needed
 
 echo ""
 echo "=========================================="
 echo "Running flake8..."
 echo "=========================================="
-uv run flake8 . --count --show-source --statistics --exclude=.venv
+uv run flake8 . --count --show-source --statistics --exclude=.venv || fixes_needed
 
 echo ""
 echo "=========================================="
 echo "Running pylint..."
 echo "=========================================="
-uv run pylint $(find . -name "*.py" | grep -v venv)
+uv run pylint $(find . -name "*.py" | grep -v venv) || fixes_needed
 
 echo ""
 echo "=========================================="
